@@ -1,19 +1,18 @@
 <?php
 session_start();
 
+if (!isset($_COOKIE['token'])) {
+    header("Location: index.php");
+    exit();
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['logout'])) {
     session_unset();
     session_destroy();
-    setcookie("jwt_token", "", time() - 3600, "/");
+    setcookie("token", "", time() - 3600, "/");
     header("Location: index.php");
     exit();
 }
-
-if (!isset($_SESSION['jwt_token'])) {
-    header("Location: index.php");
-    exit();
-}
-
 $email = $_SESSION['email'];
 ?>
 

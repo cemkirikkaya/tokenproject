@@ -1,18 +1,23 @@
 <?php
+ob_start();
 session_start();
 
-$api_base_url = "deneme";
+$api_base_url = "https://m2w0pjpaq0.execute-api.eu-central-1.amazonaws.com/prod";
 
-if (isset($_COOKIE['jwt_token'])) {
-    $token = $_COOKIE['jwt_token'];
+if (isset($_COOKIE['token'])) {
+    $token = $_COOKIE['token'];
     
-    $ch = curl_init("$api_base_url/verifyToken");
+    $ch = curl_init("$api_base_url/validateToken");
+
+    $data = json_encode(["token" => $token]);
+
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "Content-Type: application/json",
-        "Authorization: Bearer $token"
+        "Content-Type: application/json"
     ]);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+    
     $response = curl_exec($ch);
     curl_close($ch);
 
@@ -24,8 +29,12 @@ if (isset($_COOKIE['jwt_token'])) {
         header("Location: profil.php");
         exit();
     } else {
-        setcookie("jwt_token", "", time() - 3600, "/");
+        setcookie("token", "", time() - 3600, "/");
     }
+    exit();
+}
+else {
+    echo "Hata";
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['login'])) {
@@ -39,17 +48,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['login'])) {
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
     curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    
+
     $response = curl_exec($ch);
     curl_close($ch);
 
     $result = json_decode($response, true);
 
-    if (isset($result['statusCode']) && $result['statusCode'] == 201) {
-        $_SESSION['jwt_token'] = $result['token'];
+    if (isset($result['body'])) {
+        $body = json_decode($result['body'], true);
+    } else {
+        echo "Yanıt formatı beklenenden farklı!";
+        exit();
+    }
+
+    if (isset($result['statusCode']) && $result['statusCode'] == 201 && isset($body['token'])) {
+        echo "Başarılı";
+        $_SESSION['jwt_token'] = $body['token'];
         $_SESSION['email'] = $email;
         
-        setcookie("jwt_token", $result['token'], time() + (3600), "/");
+        setcookie("token", $body['token'], time() + 3600, "/", "", false, true);
 
         header("Location: profil.php");
         exit();
@@ -58,12 +75,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['login'])) {
     }
 }
 
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['register'])) {
     $new_email = $_POST['email'];
     $new_password = $_POST['password'];
 
     $data = json_encode(["email" => $new_email, "password" => $new_password]);
-
+    
     $ch = curl_init("$api_base_url/register");
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
@@ -78,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['register'])) {
     if (isset($result['statusCode']) && $result['statusCode'] == 200) {
         echo "Kayıt başarılı! Giriş yapabilirsiniz.";
     } else {
-        echo "Kayıt başarısız! Lütfen tekrar deneyin.";
+        echo $result['message'];
     }
 }
 ?>
