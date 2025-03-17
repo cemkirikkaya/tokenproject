@@ -1,27 +1,102 @@
 <?php
+ob_start();
 session_start();
 
-// Veritabanı bağlantısı yapılmadığı için şu an boş bıraktım
+$api_base_url = "https://m2w0pjpaq0.execute-api.eu-central-1.amazonaws.com/prod";
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    if (isset($_POST['login'])) {
-        // login
-        $username = $_POST['username'];
-        $password = $_POST['password'];
+if (isset($_COOKIE['token'])) {
+    $token = $_COOKIE['token'];
+    
+    $ch = curl_init("$api_base_url/validateToken");
 
-        // Burada veritabanı sorgusu olacak. Şu an statik değer koydum
+    $data = json_encode(["token" => $token]);
 
-        if ($username == 'kullanici1' && $password == 'sifre123') {
-            $_SESSION['username'] = $username;
-            header("Location: profil.php");
-            exit();
-        } elseif ($username == 'kullanici2' && $password == 'parola456') {
-            $_SESSION['username'] = $username;
-            header("Location: profil.php");
-            exit();
-        } else {
-            echo "Hatalı kullanıcı adı veya şifre!";
-        }
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Content-Type: application/json"
+    ]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+    
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    $result = json_decode($response, true);
+
+    if (isset($result['statusCode']) && $result['statusCode'] == 202) {
+        $_SESSION['jwt_token'] = $token;
+        $_SESSION['email'] = $result['email'];
+        header("Location: profil.php");
+        exit();
+    } else {
+        setcookie("token", "", time() - 3600, "/");
+    }
+    exit();
+}
+else {
+    echo "Hata";
+}
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['login'])) {
+    $email = $_POST['email'];
+    $password = $_POST['password'];
+
+    $data = json_encode(["email" => $email, "password" => $password]);
+
+    $ch = curl_init("$api_base_url/login");
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    $result = json_decode($response, true);
+
+    if (isset($result['body'])) {
+        $body = json_decode($result['body'], true);
+    } else {
+        echo "Yanıt formatı beklenenden farklı!";
+        exit();
+    }
+
+    if (isset($result['statusCode']) && $result['statusCode'] == 201 && isset($body['token'])) {
+        echo "Başarılı";
+        $_SESSION['jwt_token'] = $body['token'];
+        $_SESSION['email'] = $email;
+        
+        setcookie("token", $body['token'], time() + 3600, "/", "", false, true);
+
+        header("Location: profil.php");
+        exit();
+    } else {
+        echo "Giriş başarısız! Hatalı email veya şifre.";
+    }
+}
+
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['register'])) {
+    $new_email = $_POST['email'];
+    $new_password = $_POST['password'];
+
+    $data = json_encode(["email" => $new_email, "password" => $new_password]);
+    
+    $ch = curl_init("$api_base_url/register");
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    $result = json_decode($response, true);
+
+    if (isset($result['statusCode']) && $result['statusCode'] == 200) {
+        echo "Kayıt başarılı! Giriş yapabilirsiniz.";
+    } else {
+        echo $result['message'];
     }
 }
 ?>
@@ -30,88 +105,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Giriş ve Kayıt Ol</title>
+    <title>JWT ile Authentication</title>
     <style>
-        /* Sayfanın tamamına etki eden stil */
-        body {
-            font-family: Arial, sans-serif;
-            height: 100vh;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: #f0f0f0;
-        }
-
-        /* Form alanları için stil */
-        .form-container {
-            background-color: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            width: 300px;
-        }
-
-        .form-container h2 {
-            text-align: center;
-            color: blue;
-        }
-
-        .form-container input {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid;
-            border-radius: 5px;
-        }
-
-        .form-container button {
-            width: 100%;
-            padding: 10px;
-            background-color: blue;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .form-container button:hover {
-            background-color: darkblue;
-        }
-
-        .form-container {
-            background-color: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            width: 300px;
-            margin: 0 10px;
-            transition: transform 0.3s ease-in-out;
-        }
+        body { font-family: Arial, sans-serif; text-align: center; }
+        .container { margin: 50px auto; width: 300px; }
+        input, button { width: 100%; padding: 10px; margin: 5px 0; }
     </style>
 </head>
 <body>
-    <div class="form-container">
+    <div class="container">
         <h2>Giriş Yap</h2>
-        <form method="POST" action="">
-            <input type="text" name="username" placeholder="Kullanıcı Adı" required><br>
+        <form method="POST">
+            <input type="email" name="email" placeholder="E-posta" required><br>
             <input type="password" name="password" placeholder="Şifre" required><br>
             <button type="submit" name="login">Giriş Yap</button>
         </form>
 
-        <p>Henüz kaydınız yok mu? <a href="#" onclick="document.getElementById('register-form').style.display='block'; document.getElementById('login-form').style.display='none';">Kayıt Ol</a></p>
-    </div>
-
-    <div class="form-container" id="register-form" style="display:none;">
         <h2>Kayıt Ol</h2>
-        <form method="POST" action="">
-            <input type="text" name="username" placeholder="Kullanıcı Adı" required><br>
+        <form method="POST">
+            <input type="email" name="email" placeholder="E-posta" required><br>
             <input type="password" name="password" placeholder="Şifre" required><br>
             <button type="submit" name="register">Kayıt Ol</button>
         </form>
-
-        <p>Zaten kaydınız var mı? <a href="#" onclick="document.getElementById('register-form').style.display='none'; document.getElementById('login-form').style.display='block';">Giriş Yap</a></p>
     </div>
 </body>
 </html>
