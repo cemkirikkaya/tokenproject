@@ -56,14 +56,14 @@ const handleLogin = async (event) => {
 const handleRegister = async (event) => {
     const { email, password } = JSON.parse(event.body);
 
-    const userId = uuidv4(); 
+    //const userId = uuidv4(); 
     const hashedPassword = await bcrypt.hash(password, 10); 
     const createdAt = new Date().toISOString();
 
     const params = {
-        TableName: process.env.USERS_TABLE, 
+        TableName: process.env.JWT_USERS_TABLE, 
         Item: {
-            userId,
+            //id: userId,  
             email,
             password: hashedPassword,
             createdAt
@@ -71,8 +71,6 @@ const handleRegister = async (event) => {
     };
 
     try {
-        
-        
         const cognitoParams = {
             UserPoolId: process.env.COGNITO_USER_POOL_ID,
             Username: email,
@@ -85,7 +83,6 @@ const handleRegister = async (event) => {
 
         await cognito.adminCreateUser(cognitoParams).promise();
         await dynamoDb.put(params).promise();
-
 
         return {
             statusCode: 200,
@@ -100,6 +97,7 @@ const handleRegister = async (event) => {
         };
     }
 };
+
 
 const handleValidateToken = async (event) => {
     const { token } = JSON.parse(event.body);
