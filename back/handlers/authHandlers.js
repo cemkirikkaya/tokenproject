@@ -39,7 +39,7 @@ const handleLogin = async (event) => {
             statusCode: 201,
             body: JSON.stringify({
                 message: 'Login successful',
-                token
+                token : token
             })
         };
     } catch (error) {
