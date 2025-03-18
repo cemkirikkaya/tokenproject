@@ -33,9 +33,9 @@ if (isset($_COOKIE['token'])) {
     }
     exit();
 }
-else {
+/*else {
     echo "Hata";
-}
+}*/
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['login'])) {
     $email = $_POST['email'];
